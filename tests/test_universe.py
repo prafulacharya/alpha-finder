@@ -165,7 +165,7 @@ class TestUniverseBuilder(unittest.TestCase):
         self.assertEqual(frame.iloc[0]["BSE_Name"], "ABB India Ltd")
         self.assertEqual(frame.iloc[0]["BSE_MarketCap_Cr"], 157233.90)
 
-    def test_bse_sme_source_is_requested_and_labeled(self) -> None:
+    def test_bse_platform_is_not_inferred_from_generic_scrip_list(self) -> None:
         builder = UniverseBuilder.__new__(UniverseBuilder)
         builder.headers = {}
         stats = BuildStats()
@@ -193,8 +193,8 @@ class TestUniverseBuilder(unittest.TestCase):
 
         frame = builder.fetch_bse_scrip_map(stats)
 
-        self.assertEqual(calls, ["Equity", "SME"])
-        self.assertEqual(frame.iloc[0]["BSE_Platform"], "BSE Main Board+BSE SME")
+        self.assertEqual(calls, ["Equity"])
+        self.assertEqual(frame.iloc[0]["BSE_Platform"], "BSE Platform Unverified")
 
     def test_common_listing_is_marked_nse_and_bse(self) -> None:
         builder = UniverseBuilder.__new__(UniverseBuilder)

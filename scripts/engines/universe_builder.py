@@ -152,75 +152,65 @@ class UniverseBuilder:
         return combined
 
     def fetch_bse_scrip_map(self, stats: BuildStats) -> pd.DataFrame:
-        """Fetch BSE main-board and SME scrip lists for code mapping."""
+        """Fetch BSE scrips without guessing their trading platform."""
         try:
             self.headers["Referer"] = "https://www.bseindia.com/"
             records = []
-            for segment, platform in (("Equity", "BSE Main Board"), ("SME", "BSE SME")):
-                response = self._get(
-                    BSE_SCRIP_LIST_URL,
-                    params={
-                        "Group": "",
-                        "Scripcode": "",
-                        "industry": "",
-                        "segment": segment,
-                        "status": "Active",
-                    },
+            response = self._get(
+                BSE_SCRIP_LIST_URL,
+                params={
+                    "Group": "",
+                    "Scripcode": "",
+                    "industry": "",
+                    "segment": "Equity",
+                    "status": "Active",
+                },
+            )
+            if "json" not in response.headers.get("content-type", "").lower():
+                raise ValueError(
+                    f"BSE returned {response.headers.get('content-type', 'unknown')} "
+                    "instead of JSON"
                 )
-                if "json" not in response.headers.get("content-type", "").lower():
-                    raise ValueError(
-                        f"BSE returned {response.headers.get('content-type', 'unknown')} "
-                        "instead of JSON"
+            payload = response.json()
+            rows = payload if isinstance(payload, list) else payload.get("Table", [])
+            for row in rows:
+                symbol = str(row.get("scrip_id") or row.get("SCRIP_ID") or "").upper().strip()
+                name = str(
+                    row.get("scrip_name")
+                    or row.get("SCRIP_NAME")
+                    or row.get("Scrip_Name")
+                    or row.get("Issuer_Name")
+                    or ""
+                ).strip()
+                code = str(row.get("scrip_cd") or row.get("SCRIP_CD") or "").strip()
+                if symbol and code:
+                    market_cap = _to_float(
+                        row.get("market_cap")
+                        or row.get("MARKET_CAP")
+                        or row.get("marketCap")
                     )
-                payload = response.json()
-                rows = payload if isinstance(payload, list) else payload.get("Table", [])
-                for row in rows:
-                    symbol = str(row.get("scrip_id") or row.get("SCRIP_ID") or "").upper().strip()
-                    name = str(
-                        row.get("scrip_name")
-                        or row.get("SCRIP_NAME")
-                        or row.get("Scrip_Name")
-                        or row.get("Issuer_Name")
-                        or ""
-                    ).strip()
-                    code = str(row.get("scrip_cd") or row.get("SCRIP_CD") or "").strip()
-                    if symbol and code:
-                        market_cap = _to_float(
-                            row.get("market_cap")
-                            or row.get("MARKET_CAP")
-                            or row.get("marketCap")
-                        )
-                        bse_mktcap = _to_float(row.get("Mktcap"))
-                        if bse_mktcap is not None:
-                            # BSE ListofScripData reports Mktcap in INR crore.
-                            market_cap = bse_mktcap
-                        if market_cap and market_cap > 1_000_000:
-                            market_cap /= 1e7
-                        records.append(
-                            {
-                                "Symbol": symbol,
-                                "BSECode": code,
-                                "BSE_Name": name,
-                                "BSE_MarketCap_Cr": market_cap,
-                                "BSE_Platform": platform,
-                            }
-                        )
+                    bse_mktcap = _to_float(row.get("Mktcap"))
+                    if bse_mktcap is not None:
+                        # BSE ListofScripData reports Mktcap in INR crore.
+                        market_cap = bse_mktcap
+                    if market_cap and market_cap > 1_000_000:
+                        market_cap /= 1e7
+                    source_segment = str(row.get("Segment") or "").strip().upper()
+                    platform = "BSE SME" if source_segment == "SME" else "BSE Platform Unverified"
+                    records.append(
+                        {
+                            "Symbol": symbol,
+                            "BSECode": code,
+                            "BSE_Name": name,
+                            "BSE_MarketCap_Cr": market_cap,
+                            "BSE_Platform": platform,
+                        }
+                    )
             frame = pd.DataFrame(records)
             if not frame.empty:
-                frame = (
-                    frame.groupby("Symbol", as_index=False)
-                    .agg(
-                        BSECode=("BSECode", "first"),
-                        BSE_Name=("BSE_Name", "first"),
-                        BSE_MarketCap_Cr=("BSE_MarketCap_Cr", "first"),
-                        BSE_Platform=(
-                            "BSE_Platform",
-                            lambda values: "+".join(sorted(set(values))),
-                        ),
-                    )
-                )
+                frame = frame.drop_duplicates(subset=["Symbol"])
             stats.bse_symbols = len(frame)
-            stats.sources_ok.append("BSE equity + SME ListofScripData")
+            stats.sources_ok.append("BSE ListofScripData (platform-unverified)")
             return frame
         except Exception as exc:
             stats.sources_failed.append(f"BSE ListofScripData: {exc}")
