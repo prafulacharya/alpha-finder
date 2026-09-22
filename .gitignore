@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Local/generated data
+data/documents/
+data/universe/*.parquet
+data/inputs/market_cap_audit.csv
+data/new_alpha_candidates.csv
+data/new_alpha_candidates.json
+NEW_ALPHA_CANDIDATES.md
+
+# Local credentials and environment files
+.env
+.env.*
+*.pem
+*.key
+credentials.*
+secrets.*
+
+# Tooling and OS files
+.DS_Store
+Thumbs.db
+.vscode/

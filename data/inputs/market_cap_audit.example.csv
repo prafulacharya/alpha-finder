@@ -1,0 +1,2 @@
+Symbol,LastPrice,SharesOutstandingCr,AsOf,Source,Notes
+EXAMPLE,500,2.09,2026-09-06,"NSE quote; FY26 annual report p. 142","Calculated market cap = LastPrice × SharesOutstandingCr. Update after dilution or corporate actions."

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Alpha Finder</title>
+<style>body{max-width:900px;margin:40px auto;font:16px system-ui;line-height:1.6;color:#18221d}code{background:#edf3ed;padding:2px 5px}li{margin:.45rem 0}</style></head>
+<body><h1>Alpha Finder</h1><p>A personal research system for discovering differentiated Indian microcap businesses. It produces a research queue, never a buy recommendation.</p>
+<h2>Where things go</h2><ul>
+<li><a href="core/README.html">core/</a> — the exact type of business and evidence standard we seek.</li>
+<li><code>data/universe/company_universe.csv</code> — your pasted company list (CSV exported from Excel is fine).</li>
+<li><code>data/documents/concalls/</code> — earnings-call transcripts/PDFs.</li>
+<li><code>data/documents/filings/</code> — annual reports, results, order wins, capex and other filings.</li>
+<li><code>data/research_notes/concall/</code> — your structured notes from reading calls.</li>
+<li><code>data/inputs/</code> — market-cap audits and valuation scenarios. Manual source URLs are optional fallbacks.</li>
+<li><code>data/output/</code> — generated watchlist and machine-readable results.</li>
+<li><code>scripts/</code> — Python machinery only; you normally do not edit it.</li>
+</ul><h2>Normal workflow</h2><ol><li>Download/update the NSE/BSE universe with <code>python -m scripts --build-universe --min-market-cap 100 --market-cap-limit 3500 --segment all</code>. It keeps listed companies above ₹100 Cr and below ₹3,500 Cr for research.</li><li>Add original concall transcripts and filings as PDFs.</li><li>Record concall notes and audited valuation assumptions. Manual source URLs are only needed when automatic filing discovery misses a document.</li><li>Run <code>python -m scripts --analyze-only</code>.</li><li>Open <code>data/output/ALPHA_MASTER_WATCHLIST.md</code>.</li></ol>
+</body></html>

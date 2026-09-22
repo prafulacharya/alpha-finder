@@ -1,0 +1,2 @@
+Symbol,Scenario,TargetYear,TargetRevenueCr,TargetOPM,OtherIncomeCr,InterestCr,DepreciationCr,TaxRate,ShareCountCr,LowPE,HighPE,CurrentPrice,CurrentEPS,Source,Notes
+EXAMPLE,base,FY29,850,25,40,5,20,26,2.09,25,85,500,12.5,"Q2 FY26 concall p. 8; FY26 annual report p. 142","Every input needs a source. Current EPS calculates trailing P/E; projected EPS calculates forward P/E."
