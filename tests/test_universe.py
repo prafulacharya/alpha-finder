@@ -172,6 +172,15 @@ class TestUniverseBuilder(unittest.TestCase):
         calls: list[str] = []
 
         def get_response(url: str, **kwargs):
+            if url.endswith("smemarket.aspx"):
+                return type(
+                    "ResponseStub",
+                    (),
+                    {
+                        "headers": {"content-type": "text/html"},
+                        "text": "<table><tr><th>Security Name</th><th>LTP</th><th>T/O</th></tr><tr><td>OTHER</td><td>1</td><td>2</td></tr></table>",
+                    },
+                )()
             calls.append(kwargs["params"]["segment"])
             return type(
                 "ResponseStub",
@@ -194,7 +203,44 @@ class TestUniverseBuilder(unittest.TestCase):
         frame = builder.fetch_bse_scrip_map(stats)
 
         self.assertEqual(calls, ["Equity"])
-        self.assertEqual(frame.iloc[0]["BSE_Platform"], "BSE Platform Unverified")
+        self.assertEqual(frame.iloc[0]["BSE_Platform"], "BSE Main Board")
+
+    def test_bse_sme_page_marks_matching_symbol(self) -> None:
+        builder = UniverseBuilder.__new__(UniverseBuilder)
+        builder.headers = {}
+        stats = BuildStats()
+
+        def get_response(url: str, **kwargs):
+            if url.endswith("smemarket.aspx"):
+                return type(
+                    "ResponseStub",
+                    (),
+                    {
+                        "headers": {"content-type": "text/html"},
+                        "text": "<table><tr><td>Security Name</td><td>LTP</td><td>T/O</td></tr><tr><td>SMECO</td><td>1</td><td>2</td></tr></table>",
+                    },
+                )()
+            return type(
+                "ResponseStub",
+                (),
+                {
+                    "headers": {"content-type": "application/json"},
+                    "json": lambda self: [
+                        {
+                            "SCRIP_CD": "543210",
+                            "Scrip_Name": "SME Co",
+                            "scrip_id": "SMECO",
+                            "Mktcap": "250",
+                        }
+                    ],
+                },
+            )()
+
+        builder._get = get_response
+
+        frame = builder.fetch_bse_scrip_map(stats)
+
+        self.assertEqual(frame.iloc[0]["BSE_Platform"], "BSE SME")
 
     def test_common_listing_is_marked_nse_and_bse(self) -> None:
         builder = UniverseBuilder.__new__(UniverseBuilder)

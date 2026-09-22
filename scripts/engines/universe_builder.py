@@ -16,6 +16,7 @@ import requests
 from ..utils import Config
 from ..utils.constants import (
     BSE_SCRIP_LIST_URL,
+    BSE_SME_MARKET_PAGE,
     BSE_SEARCH,
     NSE_EQUITY_LIST_URL,
     NSE_HOME,
@@ -152,9 +153,10 @@ class UniverseBuilder:
         return combined
 
     def fetch_bse_scrip_map(self, stats: BuildStats) -> pd.DataFrame:
-        """Fetch BSE scrips without guessing their trading platform."""
+        """Fetch BSE scrips and classify SME rows from the official SME page."""
         try:
             self.headers["Referer"] = "https://www.bseindia.com/"
+            bse_sme_symbols = self.fetch_bse_sme_symbols(stats)
             records = []
             response = self._get(
                 BSE_SCRIP_LIST_URL,
@@ -195,8 +197,13 @@ class UniverseBuilder:
                         market_cap = bse_mktcap
                     if market_cap and market_cap > 1_000_000:
                         market_cap /= 1e7
-                    source_segment = str(row.get("Segment") or "").strip().upper()
-                    platform = "BSE SME" if source_segment == "SME" else "BSE Platform Unverified"
+                    platform = (
+                        "BSE Platform Unverified"
+                        if bse_sme_symbols is None
+                        else "BSE SME"
+                        if symbol in bse_sme_symbols
+                        else "BSE Main Board"
+                    )
                     records.append(
                         {
                             "Symbol": symbol,
@@ -210,12 +217,36 @@ class UniverseBuilder:
             if not frame.empty:
                 frame = frame.drop_duplicates(subset=["Symbol"])
             stats.bse_symbols = len(frame)
-            stats.sources_ok.append("BSE ListofScripData (platform-unverified)")
+            stats.sources_ok.append("BSE ListofScripData + BSE SME market page")
             return frame
         except Exception as exc:
             stats.sources_failed.append(f"BSE ListofScripData: {exc}")
             logger.warning("Failed to fetch BSE scrip list: %s", exc)
             return pd.DataFrame(columns=["Symbol", "BSECode", "BSE_Name", "BSE_Platform"])
+
+    def fetch_bse_sme_symbols(self, stats: BuildStats) -> set[str] | None:
+        """Fetch actively traded BSE SME symbols from the official SME market page."""
+        try:
+            response = self._get(BSE_SME_MARKET_PAGE, _timeout=30)
+            tables = pd.read_html(StringIO(response.text))
+            table = next((candidate for candidate in tables if candidate.shape[1] == 3), None)
+            if table is None:
+                raise ValueError("No BSE SME trading table found")
+            symbols = {
+                str(value).strip().upper()
+                for value in table.iloc[:, 0]
+                if pd.notna(value)
+                and str(value).strip()
+                and str(value).strip().upper() not in {"SECURITY NAME", "SYMBOL"}
+            }
+            if not symbols:
+                raise ValueError("BSE SME trading table contained no symbols")
+            stats.sources_ok.append("BSE SME market page")
+            return symbols
+        except Exception as exc:
+            stats.sources_failed.append(f"BSE SME market page: {exc}")
+            logger.warning("Failed to fetch BSE SME market page: %s", exc)
+            return None
 
     def fetch_nse_preopen_caps(self, stats: BuildStats) -> pd.DataFrame:
         """Bulk market data from NSE pre-open API (price + volume)."""
@@ -380,6 +411,20 @@ class UniverseBuilder:
             )
             universe.drop(columns=["BSE_Platform"], inplace=True)
 
+        platform_flags = {
+            "BSE_Main_Board": "BSE Main Board",
+            "BSE_SME": "BSE SME",
+            "NSE_Main_Board": "NSE Main Board",
+            "NSE_Emerge": "NSE Emerge",
+        }
+        platform_series = universe["Platform"] if "Platform" in universe else pd.Series(
+            "", index=universe.index, dtype="object"
+        )
+        for column, platform in platform_flags.items():
+            universe[column] = platform_series.fillna("").map(
+                lambda value: platform in str(value).split("+")
+            )
+
         if "BSE_MarketCap_Cr" in universe.columns:
             if "MarketCap_Cr" not in universe.columns:
                 universe["MarketCap_Cr"] = None
@@ -503,6 +548,10 @@ class UniverseBuilder:
             "BSECode",
             "Exchange",
             "Platform",
+            "BSE_Main_Board",
+            "BSE_SME",
+            "NSE_Main_Board",
+            "NSE_Emerge",
             "AvgDailyValue_Cr",
             "MarketCapSource",
             "MarketCapAsOf",
@@ -527,6 +576,9 @@ class UniverseBuilder:
             sync_csv["Exchange"] = sync["Exchange"]
         if "Platform" in sync.columns:
             sync_csv["Platform"] = sync["Platform"]
+        for column in ("BSE_Main_Board", "BSE_SME", "NSE_Main_Board", "NSE_Emerge"):
+            if column in sync.columns:
+                sync_csv[column] = sync[column]
         sync_csv.to_csv(csv_path, index=False)
 
     def run(self, crawl_segment: str | None = None) -> BuildStats:

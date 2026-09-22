@@ -4,7 +4,7 @@
 
 The universe builder uses the official exchange masters: [NSE securities available for trading](https://www.nseindia.com/static/market-data/securities-available-for-trading) and [BSE list of securities](https://www.bseindia.com/corporates/list_scrips). TradingView's [all Indian stocks](https://in.tradingview.com/markets/stocks-india/market-movers-all-stocks/) page is useful as a cross-check, but is not used as the authoritative exchange universe or market-cap source.
 
-- `universe/company_universe.csv`: the current NSE/BSE company universe used by the crawler and analysis engine. The default range is above INR 100 crore and below INR 3,500 crore.
+- `universe/company_universe.csv`: the current NSE/BSE company universe used by the crawler and analysis engine. The default range is above INR 100 crore and below INR 3,500 crore. `Exchange` shows NSE/BSE availability; `Platform` and the four `*_Main_Board` / `*_SME` flag columns distinguish BSE Main Board, BSE SME, NSE Main Board, and NSE Emerge.
 - `documents/`: the single source folder for downloaded evidence PDFs. Keep `concalls/` for earnings-call transcripts and `filings/` for annual reports, financial results, order announcements, and capacity updates. The analysis engine reads PDFs recursively from this folder.
 - `inputs/market_cap_audit.csv`: manually reconciled market-cap evidence. Copy the example and fill it when a market cap must be verified from price and shares outstanding.
 - `inputs/valuation_scenarios.csv`: sourced forward EPS and valuation assumptions. Copy the example and fill it only when the company has enough evidence for a scenario.
@@ -32,6 +32,7 @@ The universe builder uses the official exchange masters: [NSE securities availab
 Example commands:
 
 ```powershell
+python -m scripts --build-universe --segment all
 python -m scripts --crawl --symbols E2E --lookback-days 365
 python -m scripts --crawl --symbols PSPPROJECT --bse-only --lookback-days 365
 python -m scripts --crawl --lookback-days 120
